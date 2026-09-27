@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Master Ki — проработка</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#f7f5fa;color:#242229;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{padding:12px}
+main{max-width:700px;margin:auto}
+.card{background:#fff;border:1px solid #e5e0ea;border-radius:20px;padding:18px;box-shadow:0 5px 24px rgba(30,20,50,.05)}
+h1{font-size:27px;margin:5px 0 8px}h2{font-size:23px;margin:4px 0 8px}
+.muted{color:#77727f}.eyebrow{font-size:12px;letter-spacing:.08em;color:#77727f}
+label{display:block;font-weight:600;margin:15px 0 7px}
+input,textarea{display:block;width:100%;font-size:17px;border:1px solid #ded9e5;border-radius:13px;padding:13px;background:#fff;color:#242229}
+button{width:100%;min-height:50px;border:1px solid #ded9e5;border-radius:13px;background:#fff;font-size:16px;padding:11px 14px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+button.primary{background:#6852d7;border-color:#6852d7;color:#fff}
+button:disabled{opacity:.45}
+.stack{display:grid;gap:10px;margin-top:16px}
+.msg{font-size:14px;margin-top:9px;color:#a23d4a}
+.role-title{font-size:18px;font-weight:700}
+.progress{height:7px;background:#ebe8ef;border-radius:20px;overflow:hidden;margin:16px 0 8px}.bar{height:100%;background:#6852d7}
+.stepbox{margin-top:18px;border:1px solid #e3dee8;background:#fbfafc;border-radius:16px;padding:20px;font-size:18px;line-height:1.6}
+.check{display:flex;align-items:center;gap:10px;margin-top:15px;font-weight:500}.check input{width:21px;height:21px}
+.nav{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.actionbar{display:flex;gap:7px;overflow-x:auto;padding:5px 0}.action{white-space:nowrap;border:1px solid #ded9e5;border-radius:99px;padding:8px 11px;font-size:13px}.action.active{background:#f0edfa;border-color:#6852d7;color:#6852d7}
+.done{background:#edf7eb;border:1px solid #cfe5ca;padding:14px;border-radius:14px;margin-top:15px}
+@media(max-width:600px){body{padding:8px}.card{padding:16px;border-radius:18px}.stepbox{font-size:17px}.nav button{min-height:54px}}
+</style>
+</head>
+<body>
+<main>
+<section id="setup" class="card">
+<div class="eyebrow">MASTER KI</div>
+<h1>Проработка 4 ролей</h1>
+<div class="muted">Вставь 4 роли — по одной в каждую строку. Никаких сфер, истории и дополнительных настроек.</div>
+
+<label>Можно вставить 4 роли сразу</label>
+<textarea id="paste" rows="6" placeholder="Роль 1&#10;Роль 2&#10;Роль 3&#10;Роль 4"></textarea>
+<div class="stack">
+<button class="primary" onclick="fillRoles()">Разнести по 4 ролям</button>
+</div>
+<div id="setupMsg" class="msg"></div>
+
+<label>Роль 1</label><input id="r1">
+<label>Роль 2</label><input id="r2">
+<label>Роль 3</label><input id="r3">
+<label>Роль 4</label><input id="r4">
+
+<div class="stack">
+<button class="primary" onclick="start()">Начать проработку</button>
+</div>
+</section>
+
+<section id="work" class="card" hidden>
+<div class="eyebrow">MASTER KI</div>
+<h2 id="roleNumber"></h2>
+<div class="role-title" id="roleText"></div>
+
+<div class="progress"><div class="bar" id="bar"></div></div>
+<div class="muted" id="counter"></div>
+<div class="actionbar" id="actions"></div>
+
+<div class="stepbox" id="stepText"></div>
+
+<label class="check"><input type="checkbox" id="done" onchange="mark()"> Пройдено</label>
+
+<div class="nav">
+<button id="back" onclick="back()">Назад</button>
+<button id="next" class="primary" onclick="next()">Далее</button>
+</div>
+</section>
+
+<section id="finish" class="card" hidden>
+<div class="eyebrow">MASTER KI</div>
+<h2 id="finishTitle"></h2>
+<div class="done">Роль полностью пройдена — 40 шагов.</div>
+<div class="stack">
+<button class="primary" onclick="continueRole()">Следующая роль</button>
+<button onclick="restart()">Начать заново</button>
+</div>
+</section>
+</main>
+
+<script>
+const ACTIONS=["Встать на место","Использовать силу","Проявлять слабость","Брать","Давать"];
+const FORMS=[
+["имею право","правах"],["не имею право","правах"],["способна","способностях"],["не способна","способностях"],
+["имею право не","правах"],["не имею право не","правах"],["способна не","способностях"],["не способна не","способностях"]
+];
+let roles=[],ri=0,si=0,done=Array(40).fill(false);
+
+const $=id=>document.getElementById(id);
+
+function clean(s){
+ return s.trim().replace(/^[-*•]\s*(?:\[[ xX]\]\s*)?/,"").replace(/^\d+[\.)]\s*/,"").trim();
+}
+function lines(s){return s.split(/\r?\n/).map(clean).filter(Boolean)}
+
+function fillRoles(){
+ const a=lines($("paste").value);
+ if(a.length!==4){
+  $("setupMsg").textContent="Нужно вставить ровно 4 роли. Сейчас найдено: "+a.length;
+  return;
+ }
+ for(let i=0;i<4;i++)$("r"+(i+1)).value=a[i];
+ $("paste").value="";
+ $("setupMsg").textContent="";
+}
+
+function start(){
+ roles=[1,2,3,4].map(i=>$("r"+i).value.trim());
+ if(roles.some(x=>!x)){
+  $("setupMsg").textContent="Заполни все 4 роли.";
+  return;
+ }
+ ri=0;si=0;done=Array(40).fill(false);
+ $("setup").hidden=true;$("finish").hidden=true;$("work").hidden=false;
+ render();
+}
+
+function render(){
+ const action=Math.floor(si/8),form=si%8;
+ const f=FORMS[form],a=ACTIONS[action],role=roles[ri];
+
+ $("roleNumber").textContent="Роль "+(ri+1)+" из 4";
+ $("roleText").textContent=role;
+ $("counter").textContent="Шаг "+(si+1)+" из 40";
+ $("bar").style.width=((si+1)/40*100)+"%";
+
+ $("actions").innerHTML=ACTIONS.map((x,i)=>
+  '<span class="action '+(i===action?"active":"")+'">'+x+'</span>'
+ ).join("");
+
+ $("stepText").textContent=
+ "Можно мне было решить что я "+f[0]+" "+a.toLowerCase()+" ("+role+")…. Но только я так думала это было только мое представление о моих "+f[1]+" только мое мне можно было им пользоваться но оно было только мое.";
+
+ $("done").checked=!!done[si];
+ $("back").disabled=si===0;
+ $("next").textContent=si===39?"Завершить роль":"Далее";
+}
+
+function mark(){done[si]=$("done").checked}
+
+function next(){
+ mark();
+ if(si<39){si++;render();return}
+ $("work").hidden=true;
+ $("finish").hidden=false;
+ $("finishTitle").textContent="Роль "+(ri+1)+" завершена";
+}
+
+function back(){
+ mark();
+ if(si>0){si--;render()}
+}
+
+function continueRole(){
+ if(ri<3){
+  ri++;si=0;done=Array(40).fill(false);
+  $("finish").hidden=true;$("work").hidden=false;render();
+ }else{
+  $("finishTitle").textContent="Все 4 роли проработаны";
+ }
+}
+
+function restart(){
+ $("finish").hidden=true;$("work").hidden=true;$("setup").hidden=false;
+}
+</script>
+</body>
+</html>
